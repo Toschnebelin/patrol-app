@@ -16,16 +16,22 @@ library(gargle)
 # ============================================================
 # Authentification robuste pour Google Sheets
 setup_google_auth <- function() {
-  # Essayer d'abord avec le fichier secret
-  if (file.exists("/etc/secrets/service_account.json")) {
+  auth_json_content <- Sys.getenv("SERVICE_ACCOUNT_JSON")
+  if (nchar(auth_json_content) > 0) {
     tryCatch({
-      gs4_auth(path = "/etc/secrets/service_account.json")
-      message("✅ Auth Google Sheets via service account")
+      tmp_file <- tempfile(fileext = ".json")
+      writeLines(auth_json_content, tmp_file)
+      gs4_auth(path = tmp_file)
+      message("✅ Auth Google Sheets OK")
       return(TRUE)
     }, error = function(e) {
-      message("⚠️ Erreur service account:", e$message)
+      message("❌ Erreur auth: ", e$message)
+      return(FALSE)
     })
   }
+  message("❌ SERVICE_ACCOUNT_JSON introuvable")
+  return(FALSE)
+}
   
   # Fallback : chercher dans les variables d'environnement
   auth_json <- Sys.getenv("GOOGLE_APPLICATION_CREDENTIALS")
