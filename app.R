@@ -9,17 +9,56 @@ library(lubridate)
 library(base64enc)
 library(shinyjs)
 library(googlesheets4)
+library(gargle)
 
 # ============================================================
 # CONFIGURATION GOOGLE SHEETS
 # ============================================================
-# Ne pas authentifier pendant le test de build
-if (!file.exists("/etc/secrets/service_account.json")) {
-  # En dev/test, on skip l'auth
-  message("Service account not found - skipping Google Sheets auth")
-} else {
-  gs4_auth(path = "/etc/secrets/service_account.json")
+# Authentification robuste pour Google Sheets
+setup_google_auth <- function() {
+  # Essayer d'abord avec le fichier secret
+  if (file.exists("/etc/secrets/service_account.json")) {
+    tryCatch({
+      gs4_auth(path = "/etc/secrets/service_account.json")
+      message("✅ Auth Google Sheets via service account")
+      return(TRUE)
+    }, error = function(e) {
+      message("⚠️ Erreur service account:", e$message)
+    })
+  }
+  
+  # Fallback : chercher dans les variables d'environnement
+  auth_json <- Sys.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+  if (nchar(auth_json) > 0 && file.exists(auth_json)) {
+    tryCatch({
+      gs4_auth(path = auth_json)
+      message("✅ Auth Google Sheets via env var")
+      return(TRUE)
+    }, error = function(e) {
+      message("⚠️ Erreur env var:", e$message)
+    })
+  }
+  
+  # Fallback : créer un fichier temp depuis JSON en env var
+  auth_json_content <- Sys.getenv("SERVICE_ACCOUNT_JSON")
+  if (nchar(auth_json_content) > 0) {
+    tryCatch({
+      tmp_file <- tempfile(fileext = ".json")
+      writeLines(auth_json_content, tmp_file)
+      gs4_auth(path = tmp_file)
+      message("✅ Auth Google Sheets via JSON env var")
+      return(TRUE)
+    }, error = function(e) {
+      message("⚠️ Erreur JSON env var:", e$message)
+    })
+  }
+  
+  message("⚠️ Pas d'authentification Google Sheets trouvée - mode démo")
+  return(FALSE)
 }
+
+# Exécuter l'authentification au démarrage
+auth_success <- setup_google_auth()
 
 SHEET_ID <- "1K3tSe5dG4Zp-8mqjel-cHX2WSRoZifxzai0A9YoxPl4"
 
@@ -56,7 +95,10 @@ ui <- fluidPage(
   # ---- TITRE ----
   div(class = "app-header",
       h2("🌿 Application Patrouille"),
-      p(textOutput("current_datetime"))
+      p(textOutput("current_datetime")),
+      if (!auth_success) {
+        p(style = "color: red; font-weight: bold;", "⚠️ Mode démo - pas d'enregistrement")
+      }
   ),
   
   # ---- FORMULAIRE PRINCIPAL ----
@@ -175,11 +217,14 @@ server <- function(input, output, session) {
   # CHARGEMENT DONNÉES AU DÉMARRAGE DEPUIS GOOGLE SHEETS
   # ----------------------------------------------------------
   observe({
-    tryCatch({
-      rv$data <- read_sheet(SHEET_ID)
-    }, error = function(e) {
-      rv$data <- data.frame()
-    })
+    if (auth_success) {
+      tryCatch({
+        rv$data <- read_sheet(SHEET_ID)
+      }, error = function(e) {
+        message("Erreur lecture Google Sheets:", e$message)
+        rv$data <- data.frame()
+      })
+    }
   })
   
   # ----------------------------------------------------------
@@ -312,6 +357,15 @@ server <- function(input, output, session) {
       stringsAsFactors    = FALSE
     )
     
+    if (!auth_success) {
+      output$submit_message <- renderUI({
+        div(class = "alert alert-warning",
+            p("⚠️ Mode démo - données non enregistrées (pas d'authentification Google)")
+        )
+      })
+      return()
+    }
+    
     tryCatch({
       sheet_append(SHEET_ID, data = nouvelle_obs)
       rv$data <- bind_rows(rv$data, nouvelle_obs)
@@ -321,10 +375,15 @@ server <- function(input, output, session) {
             p(paste("✅ Observation enregistrée !", nouvelle_obs$id))
         )
       })
+      
+      showNotification("✅ Observation enregistrée avec succès !", type = "message", duration = 3)
+      
     }, error = function(e) {
+      message("Erreur sheet_append:", e$message)
       output$submit_message <- renderUI({
         div(class = "alert alert-danger",
-            p(paste("❌ Erreur lors de l'enregistrement :", e$message))
+            p(paste("❌ Erreur lors de l'enregistrement :")),
+            p(e$message)
         )
       })
     })
