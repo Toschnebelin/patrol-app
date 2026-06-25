@@ -13,14 +13,9 @@ library(googlesheets4)
 # ============================================================
 # CONFIGURATION GOOGLE SHEETS
 # ============================================================
-# Écrire le JSON depuis la variable d'environnement
-json_content <- Sys.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
-if (json_content != "") {
-  writeLines(json_content, "/tmp/service_account.json")
-  gs4_auth(path = "/tmp/service_account.json")
-}
+gs4_auth(path = "/etc/secrets/service_account.json")
 
-SHEET_ID <- Sys.getenv("GOOGLE_SHEET_ID")
+SHEET_ID <- "1K3tSe5dG4Zp-8mqjel-cHX2WSRoZifxzai0A9YoxPl4"
 
 # ============================================================
 # UI
@@ -311,7 +306,6 @@ server <- function(input, output, session) {
       stringsAsFactors    = FALSE
     )
     
-    # ← SAUVEGARDE DANS GOOGLE SHEETS (plus de write.csv !)
     tryCatch({
       sheet_append(SHEET_ID, data = nouvelle_obs)
       rv$data <- bind_rows(rv$data, nouvelle_obs)
