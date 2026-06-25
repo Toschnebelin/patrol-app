@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev
 
 # Installer vos packages R
-RUN R -e "install.packages(c('shiny','leaflet','DT','dplyr','lubridate','base64enc','shinyjs'))"
+RUN R -e "install.packages(c('shiny','leaflet','DT','dplyr','lubridate','base64enc','shinyjs','googlesheets4','gargle'))"
 
 # Copier l'app
 COPY . /srv/shiny-server/
