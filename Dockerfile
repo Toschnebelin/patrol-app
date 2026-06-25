@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y \
 RUN R -e "install.packages(c('shiny','leaflet','DT','dplyr','lubridate','base64enc','shinyjs'))"
 
 # Copier l'app
-COPY . /srv/shiny-server/patrol_app/
+COPY . /srv/shiny-server/
 
 # Exposer le port
 EXPOSE 3838
