@@ -13,7 +13,13 @@ library(googlesheets4)
 # ============================================================
 # CONFIGURATION GOOGLE SHEETS
 # ============================================================
-gs4_auth(path = "/etc/secrets/service_account.json")
+# Ne pas authentifier pendant le test de build
+if (!file.exists("/etc/secrets/service_account.json")) {
+  # En dev/test, on skip l'auth
+  message("Service account not found - skipping Google Sheets auth")
+} else {
+  gs4_auth(path = "/etc/secrets/service_account.json")
+}
 
 SHEET_ID <- "1K3tSe5dG4Zp-8mqjel-cHX2WSRoZifxzai0A9YoxPl4"
 
