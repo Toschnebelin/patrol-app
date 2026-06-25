@@ -13,11 +13,14 @@ library(googlesheets4)
 # ============================================================
 # CONFIGURATION GOOGLE SHEETS
 # ============================================================
-# Authentification sans navigateur (pour serveur)
-gs4_auth(path = "service_account.json")
+# Écrire le JSON depuis la variable d'environnement
+json_content <- Sys.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+if (json_content != "") {
+  writeLines(json_content, "/tmp/service_account.json")
+  gs4_auth(path = "/tmp/service_account.json")
+}
 
-# ID de votre Google Sheet (à remplacer)
-SHEET_ID <- "VOTRE_ID_GOOGLE_SHEET_ICI"
+SHEET_ID <- Sys.getenv("GOOGLE_SHEET_ID")
 
 # ============================================================
 # UI
